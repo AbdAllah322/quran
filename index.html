@@ -69,6 +69,21 @@ body.audio-hidden #restore-audio{display:block}
 body.audio-hidden #main{padding-bottom:calc(var(--nav-h) + env(safe-area-inset-bottom) + 30px)}
 #sheet{max-height:min(80dvh,680px);overscroll-behavior:contain}
 @media(max-width:360px){nav .nav-icon{font-size:19px}nav button{font-size:10px}#bar{padding:7px 8px;gap:3px}#bar .audio-main{gap:2px}#bar .audio-main button{padding:6px;min-width:30px}}
+
+/* Madani 604-page reader */
+.mushaf-controls{display:flex;gap:8px;align-items:center;justify-content:space-between;margin-bottom:10px}
+.mushaf-controls button{font-size:13px;padding:7px 10px}
+.mushaf-controls strong{font-size:13px;text-align:center}
+.mushaf-paper{margin:auto;max-width:560px;background:#fff;border:1px solid var(--bd);border-radius:6px;overflow:hidden}
+.mushaf-paper img{display:block;width:100%;height:auto}
+.mushaf-paper .error{padding:35px;text-align:center;color:#b33}
+.mushaf-bottom{display:flex;justify-content:center;align-items:center;gap:8px;margin:12px 0}
+.mushaf-bottom input{width:76px;text-align:center;background:var(--card);color:var(--fg);border:1px solid var(--bd);padding:7px;border-radius:8px}
+.verse-panel{margin-top:12px}
+.verse-panel summary{padding:12px;border:1px solid var(--bd);border-radius:10px;background:var(--card);cursor:pointer;text-align:center}
+.verse-panel .row{margin-top:8px}
+.verse-panel .row .ar{font-size:20px;line-height:2}
+@media(max-width:380px){.mushaf-controls strong{font-size:11px}}
 </style>
 </head>
 <body>
@@ -89,32 +104,32 @@ const RECS={'ar.alafasy':['مشاري العفاسي',128],'ar.husary':['الح�
 let S=Object.assign({theme:'light',fs:28,tr:false,taf:false,rec:'ar.alafasy',spd:1,rep:1,bm:[],last:null},JSON.parse(localStorage.quran||'{}'));
 const save=()=>localStorage.quran=JSON.stringify(S);
 const api=async p=>{const r=await fetch('https://api.alquran.cloud/v1/'+p);if(!r.ok)throw 0;return (await r.json()).data};
-let tab='surah',surahs=[],ays=[],cur=-1,repN=0,reading=false,ctx=null;
+let tab='surah',surahs=[],ays=[],cur=-1,repN=0,reading=false,ctx=null;let mushafPage=1,readerRequest=0;const MUSHAF_IMAGES='https://raw.githubusercontent.com/Miftah-Fentaw/Quran_webp/main/png/';
 const au=new Audio();
 
 function applyTheme(){document.documentElement.dataset.theme=S.theme;document.documentElement.style.setProperty('--fs',S.fs+'px');save()}
 function nav(){const t=[['surah','📖','السور'],['juz','🧩','الأجزاء'],['bm','🔖','المحفوظات'],['search','🔍','بحث']];
  $('#nav').innerHTML=t.map(([k,ico,l])=>`<button data-k="${k}" class="${tab==k&&!reading?'on':''}"><span class="nav-icon" aria-hidden="true">${ico}</span><span class="nav-label">${l}</span></button>`).join('');
  $('#nav').onclick=e=>{const k=e.target.closest('button[data-k]')?.dataset.k;if(k){tab=k;closeReader();home()}}}
-function closeReader(){reading=false;document.body.classList.remove('reader-active','audio-hidden');$('#bar').classList.remove('expanded');au.pause();$('#bar').style.display='none';$('#back').hidden=true;$('#ttl').textContent='المصحف الشريف';nav()}
+function closeReader(){readerRequest++;reading=false;document.body.classList.remove('reader-active','audio-hidden');$('#bar').classList.remove('expanded');au.pause();$('#bar').style.display='none';$('#back').hidden=true;$('#ttl').textContent='المصحف الشريف';nav()}
 $('#back').onclick=()=>{closeReader();home()};
 
 async function home(){
  const m=$('#main');nav();
  if(tab=='surah'){
   if(!surahs.length){m.innerHTML='<div class="mut">جاري التحميل…</div>';try{surahs=await api('surah')}catch{m.innerHTML='<div class="mut">تعذّر التحميل، تأكد من الاتصال</div>';return}}
-  const last=S.last?`<div class="row" id="lr" style="border-color:var(--ac)"><div class="t">▶ أكمل من آخر موضع<br><small>${S.last.name} · آية ${AR(S.last.ay)}</small></div></div>`:'';
+  const last=S.last?`<div class="row" id="lr" style="border-color:var(--ac)"><div class="t">▶ أكمل من آخر موضع<br><small>${S.last.name} · صفحة ${AR(S.last.page||1)}</small></div></div>`:'';
   m.innerHTML=last+'<input type="search" id="q" placeholder="ابحث عن سورة…"><div id="l"></div>';
   const draw=f=>$('#l').innerHTML=surahs.filter(s=>!f||s.name.includes(f)||s.englishName.toLowerCase().includes(f.toLowerCase())||String(s.number)==f).map(s=>`<div class="row" data-n="${s.number}"><div class="num">${AR(s.number)}</div><div class="t"><b class="ar" style="font-size:20px">${s.name}</b><br><small>${s.englishName} · ${AR(s.numberOfAyahs)} آية · ${s.revelationType=='Meccan'?'مكية':'مدنية'}</small></div></div>`).join('');
   draw();$('#q').oninput=e=>draw(e.target.value.trim());
   $('#l').onclick=e=>{const r=e.target.closest('.row');if(r)openReader('surah',+r.dataset.n)};
-  if($('#lr'))$('#lr').onclick=()=>openReader(S.last.type,S.last.n,S.last.ay);
+  if($('#lr'))$('#lr').onclick=()=>openReader('page',S.last.page||1);
  }else if(tab=='juz'){
   m.innerHTML='<div class="grid">'+Array.from({length:30},(_,i)=>`<button data-n="${i+1}">${AR(i+1)}</button>`).join('')+'</div>';
   m.onclick=e=>{const n=e.target.dataset.n;if(n&&tab=='juz')openReader('juz',+n)};
  }else if(tab=='bm'){
   m.innerHTML=S.bm.length?S.bm.map((b,i)=>`<div class="row" data-i="${i}"><div class="num">${AR(b.ay)}</div><div class="t"><b>${b.name}</b><br><small class="ar" style="font-size:16px">${b.text}…</small></div><button data-d="${i}">🗑</button></div>`).join(''):'<div class="mut">لا توجد علامات بعد. اضغط على أي آية لإضافتها.</div>';
-  m.onclick=e=>{const d=e.target.dataset.d;if(d!=null){S.bm.splice(+d,1);save();home();return}const r=e.target.closest('.row');if(r){const b=S.bm[+r.dataset.i];openReader('surah',b.n,b.ay)}};
+  m.onclick=e=>{const d=e.target.closest('[data-d]')?.dataset.d;if(d!=null){S.bm.splice(+d,1);save();home();return}const r=e.target.closest('.row');if(r){const b=S.bm[+r.dataset.i];openReader('surah',b.n,b.ay)}};
  }else{
   m.innerHTML='<input type="search" id="q" placeholder="ابحث في القرآن (بدون تشكيل)…"><div id="l"></div>';
   let tm;$('#q').oninput=e=>{clearTimeout(tm);const v=e.target.value.trim();if(v.length<3){$('#l').innerHTML='';return}
@@ -124,35 +139,65 @@ async function home(){
  }
 }
 
+
 async function openReader(type,n,focus){
- reading=true;au.pause();nav();$('#back').hidden=false;const m=$('#main');m.onclick=null;
- m.innerHTML='<div class="mut">جاري التحميل…</div>';
- try{const d=await api(`${type}/${n}/editions/quran-uthmani,ar.muyassar,en.sahih`);
-  ays=d[0].ayahs.map((a,i)=>{a.surah=a.surah||{number:d[0].number,name:d[0].name};a.taf=d[1].ayahs[i].text;a.en=d[2].ayahs[i].text;return a});
-  ctx={type,n,title:type=='surah'?d[0].name:'الجزء '+AR(n)};
- }catch{m.innerHTML='<div class="mut">تعذّر التحميل، تأكد من الاتصال</div>';return}
- $('#ttl').textContent=ctx.title;renderReader();
- $('#bar').style.display='flex';document.body.classList.add('reader-active');document.body.classList.remove('audio-hidden');$('#audio-title').textContent=ctx.title+' · '+RECS[S.rec][0];
- if(focus){const el=document.querySelector(`.a[data-s="${n}"][data-n="${focus}"]`)||document.querySelector(`.a[data-n="${focus}"]`);el&&el.scrollIntoView({block:'center'})}else window.scrollTo(0,0);
+ const req=++readerRequest;
+ reading=true;au.pause();cur=-1;nav();$('#back').hidden=false;
+ $('#main').onclick=null;$('#main').innerHTML='<div class="mut">جاري فتح المصحف…</div>';
+ try{
+  let target=n;
+  if(type==='surah'){
+   const d=await api('surah/'+n);
+   target=focus?(d.ayahs.find(a=>a.numberInSurah===focus)||d.ayahs[0]).page:d.ayahs[0].page;
+  }else if(type==='juz'){
+   const d=await api('juz/'+n);
+   target=d.ayahs[0].page;
+  }
+  if(req!==readerRequest||!reading)return;
+  await showMushafPage(target,req);
+ }catch(err){
+  if(req===readerRequest)$('#main').innerHTML='<div class="mut">تعذّر فتح المصحف. تحقق من الإنترنت وحاول مرة أخرى.</div>';
+ }
+}
+async function showMushafPage(p,existingRequest){
+ if(!Number.isInteger(p)||p<1||p>604)return;
+ const req=existingRequest||++readerRequest;
+ mushafPage=p;au.pause();cur=-1;$('#pp').textContent='▶';
+ $('#main').innerHTML='<div class="mut">جاري تحميل صفحة '+AR(p)+'…</div>';
+ let data;
+ try{data=await api('page/'+p+'/editions/quran-uthmani,ar.muyassar,en.sahih')}
+ catch(err){if(req===readerRequest)$('#main').innerHTML='<div class="mut">تعذّر تحميل الصفحة. تحقق من الإنترنت ثم حاول مجددًا.</div>';return}
+ if(req!==readerRequest||!reading)return;
+ ays=data[0].ayahs.map((a,i)=>({...a,taf:data[1].ayahs[i].text,en:data[2].ayahs[i].text}));
+ ctx={type:'page',n:p,title:'صفحة '+AR(p)};
+ $('#ttl').textContent=ays[0].surah.name;
+ $('#bar').style.display='flex';document.body.classList.add('reader-active');document.body.classList.remove('audio-hidden');
+ $('#audio-title').textContent='صفحة '+AR(p)+' · '+RECS[S.rec][0];
+ S.last={type:'page',n:p,page:p,ay:ays[0].numberInSurah,name:ays[0].surah.name};save();
+ renderReader();window.scrollTo(0,0);
 }
 function renderReader(){
- let h='';ays.forEach((a,i)=>{
-  if(a.numberInSurah==1){h+=`<div class="sh">سورة ${a.surah.name.replace('سُورَةُ ','')}</div>`;if(a.surah.number!=1&&a.surah.number!=9)h+='<div class="bsm">بِسْمِ ٱللَّهِ ٱلرَّحْمَـٰنِ ٱلرَّحِيمِ</div>'}
-  let t=a.text;if(a.numberInSurah==1&&a.surah.number!=1&&a.surah.number!=9)t=t.split(' ').slice(4).join(' ');
-  h+=`<div class="ay"><span class="a" data-i="${i}" data-s="${a.surah.number}" data-n="${a.numberInSurah}">${t} <b class="n">﴿${AR(a.numberInSurah)}﴾</b></span>${S.taf?`<div class="ex">${a.taf}</div>`:''}${S.tr?`<div class="ex en">${a.en}</div>`:''}</div>`});
- $('#main').innerHTML=`<div id="rd" class="${S.taf||S.tr?'blk':''}">${h}</div>`;
- $('#rd').onclick=e=>{const s=e.target.closest('.a');if(s)openAyah(+s.dataset.i)};
- hl();
+ if(!reading||!ays.length)return;
+ const p=mushafPage;
+ const rows=ays.map((a,i)=>`<div class="row" data-i="${i}"><div class="t"><small>${a.surah.name} · آية ${AR(a.numberInSurah)}</small><div class="ar">${a.text}</div></div><button data-play="${i}" aria-label="استمع">▶</button></div>`).join('');
+ $('#main').innerHTML=`<div class="mushaf-controls"><button id="m-prev" ${p===1?'disabled':''}>السابقة</button><strong>صفحة ${AR(p)} / ${AR(604)} · الجزء ${AR(ays[0].juz)}</strong><button id="m-next" ${p===604?'disabled':''}>التالية</button></div><div class="mushaf-paper" id="m-paper"><img id="m-image" alt="صفحة ${AR(p)} من مصحف المدينة" src="${MUSHAF_IMAGES+p}.png" draggable="false"></div><div class="mushaf-bottom"><label for="m-jump">صفحة</label><input type="number" min="1" max="604" id="m-jump" value="${p}"><button id="m-go">انتقال</button></div><details class="verse-panel" id="m-verses"><summary>آيات الصفحة: التلاوة والتفسير والحفظ</summary><div id="m-list">${rows}</div></details>`;
+ $('#m-image').onerror=()=>{$('#m-paper').innerHTML='<div class="error">تعذّر تحميل صورة المصحف. تحقق من الإنترنت وأعد فتح الصفحة.</div>'};
+ $('#m-prev').onclick=()=>showMushafPage(mushafPage-1);
+ $('#m-next').onclick=()=>showMushafPage(mushafPage+1);
+ $('#m-go').onclick=()=>{const x=Number($('#m-jump').value);if(Number.isInteger(x)&&x>=1&&x<=604)showMushafPage(x)};
+ $('#m-jump').onkeydown=e=>{if(e.key==='Enter')$('#m-go').click()};
+ $('#m-list').onclick=e=>{const row=e.target.closest('.row');if(!row)return;const i=Number(row.dataset.i);if(e.target.closest('[data-play]'))play(i);else openAyah(i)};
+ let sx=null,sy=null;
+ $('#m-paper').addEventListener('touchstart',e=>{sx=e.touches[0].clientX;sy=e.touches[0].clientY},{passive:true});
+ $('#m-paper').addEventListener('touchend',e=>{if(sx===null)return;const dx=e.changedTouches[0].clientX-sx,dy=e.changedTouches[0].clientY-sy;sx=null;if(Math.abs(dx)>65&&Math.abs(dx)>Math.abs(dy)*1.5)showMushafPage(mushafPage+(dx>0?1:-1))},{passive:true});
 }
-const hl=()=>{document.querySelectorAll('.a.on').forEach(x=>x.classList.remove('on'));const el=document.querySelector(`.a[data-i="${cur}"]`);if(el){el.classList.add('on');el.scrollIntoView({block:'center',behavior:'smooth'})}};
-let st;addEventListener('scroll',()=>{if(!reading)return;clearTimeout(st);st=setTimeout(()=>{const el=[...document.querySelectorAll('.a')].find(x=>x.getBoundingClientRect().top>70);if(el){const a=ays[+el.dataset.i];S.last={type:ctx.type,n:ctx.n,ay:a.numberInSurah,name:a.surah.name};save()}},300)});
-
+const hl=()=>{document.querySelectorAll('#m-list .row.active').forEach(e=>e.classList.remove('active'));const el=document.querySelector('#m-list .row[data-i="'+cur+'"]');if(el){el.classList.add('active');if($('#m-verses')?.open)el.scrollIntoView({block:'nearest'})}};
 // ---- Audio
 function play(i){if(i<0||i>=ays.length){au.pause();$('#pp').textContent='▶';return}
  cur=i;repN=0;au.src=`https://cdn.islamic.network/quran/audio/${RECS[S.rec][1]}/${S.rec}/${ays[i].number}.mp3`;au.playbackRate=S.spd;au.play();$('#pp').textContent='⏸';hl()}
-au.onended=()=>{if(++repN<(S.rep||1)){au.currentTime=0;au.play()}else play(cur+1)};
+au.onended=async()=>{if(++repN<(S.rep||1)){au.currentTime=0;au.play()}else if(cur+1<ays.length)play(cur+1);else if(mushafPage<604){await showMushafPage(mushafPage+1);if(ays.length)play(0)}else $('#pp').textContent='▶'};
 $('#pp').onclick=()=>{if(au.paused&&au.src){au.play();$('#pp').textContent='⏸'}else if(au.paused)play(0);else{au.pause();$('#pp').textContent='▶'}};
-$('#nx').onclick=()=>play(cur+1);$('#pv').onclick=()=>play(Math.max(0,cur-1));
+$('#nx').onclick=async()=>{if(cur+1<ays.length)play(cur+1);else if(mushafPage<604){await showMushafPage(mushafPage+1);if(ays.length)play(0)}};$('#pv').onclick=async()=>{if(cur>0)play(cur-1);else if(mushafPage>1){await showMushafPage(mushafPage-1);if(ays.length)play(ays.length-1)}};
 $('#rec').innerHTML=Object.entries(RECS).map(([k,v])=>`<option value="${k}">${v[0]}</option>`).join('');$('#rec').value=S.rec;
 $('#rec').onchange=e=>{S.rec=e.target.value;$('#audio-title').textContent=(ctx?.title||'المصحف')+' · '+RECS[S.rec][0];save();if(!au.paused)play(cur)};
 $('#spd').onclick=()=>{const s=[1,1.25,1.5,.75];S.spd=s[(s.indexOf(S.spd)+1)%4];au.playbackRate=S.spd;$('#spd').textContent=S.spd+'×';save()};
@@ -183,7 +228,7 @@ $('#set').onclick=()=>{
  $('#ttr').onclick=()=>{S.tr=!S.tr;save();$('#set').click();reading&&renderReader()};
  $('#ttf').onclick=()=>{S.taf=!S.taf;save();$('#set').click();reading&&renderReader()};
 };
-if('mediaSession' in navigator){navigator.mediaSession.setActionHandler('nexttrack',()=>play(cur+1));navigator.mediaSession.setActionHandler('previoustrack',()=>play(cur-1))}
+if('mediaSession' in navigator){navigator.mediaSession.setActionHandler('nexttrack',()=>$('#nx').click());navigator.mediaSession.setActionHandler('previoustrack',()=>$('#pv').click())}
 if('serviceWorker' in navigator&&location.protocol.startsWith('http'))navigator.serviceWorker.register('sw.js');
 applyTheme();home();
 </script>
