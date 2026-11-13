@@ -1,9 +1,9 @@
-const C = 'quran-v1';
+const C = 'quran-v2-madani-pages';
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(C).then(c => c.addAll(['./', './index.html', './manifest.json'])));
   self.skipWaiting();
 });
-self.addEventListener('activate', e => e.waitUntil(clients.claim()));
+self.addEventListener('activate', e => e.waitUntil(Promise.all([caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==C).map(k=>caches.delete(k)))),clients.claim()])));
 self.addEventListener('fetch', e => {
   const r = e.request;
   if (r.method !== 'GET' || r.url.includes('/audio/')) return;
