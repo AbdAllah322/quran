@@ -45,15 +45,42 @@ input[type=search]{width:100%;padding:11px 14px;border-radius:12px;border:1px so
 .opt{display:flex;gap:8px;align-items:center;margin:12px 0;flex-wrap:wrap}
 .opt button.on{background:var(--ac);color:#fff}
 .mut{color:var(--mut);text-align:center;padding:30px}
+
+:root{--nav-h:68px;--player-h:62px}
+body{overflow-x:hidden}
+#main{padding-bottom:calc(var(--nav-h) + env(safe-area-inset-bottom) + 28px)}
+body.reader-active #main{padding-bottom:calc(var(--nav-h) + var(--player-h) + env(safe-area-inset-bottom) + 35px)}
+nav{min-height:var(--nav-h);align-items:stretch;gap:0}
+nav button{min-width:0;min-height:var(--nav-h);padding:8px 2px 6px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;white-space:nowrap;line-height:1.25;font-size:clamp(10px,2.9vw,13px)}
+nav .nav-icon{font-size:22px;line-height:1.15}
+#bar{bottom:calc(var(--nav-h) + env(safe-area-inset-bottom));min-height:var(--player-h);padding:8px 12px;gap:8px;flex-wrap:nowrap;box-shadow:0 -4px 18px #0000000d}
+#bar .audio-toggle{flex:1;min-width:0;text-align:start;display:flex;align-items:center;gap:7px;overflow:hidden;border:0;background:transparent;padding:5px 2px}
+#bar .audio-title{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px}
+#bar .chevron{font-size:13px;color:var(--mut)}
+#bar .audio-main{display:flex;align-items:center;gap:6px;flex-shrink:0}
+#bar .audio-main button{padding:7px 9px;min-width:36px}
+#bar .audio-extra{display:none;position:absolute;bottom:100%;inset-inline:0;background:var(--card);border-top:1px solid var(--bd);padding:14px 16px;box-shadow:0 -8px 18px #00000012;grid-template-columns:1fr auto auto;gap:8px;align-items:center}
+#bar.expanded .audio-extra{display:grid}
+#bar .audio-extra label{grid-column:1/-1;font-size:12px;color:var(--mut)}
+#bar .audio-extra select{width:100%;min-width:0}
+#bar .audio-hide{font-size:12px;color:var(--mut);border:0;background:transparent;padding:6px}
+#restore-audio{display:none;position:fixed;bottom:calc(var(--nav-h) + env(safe-area-inset-bottom) + 10px);inset-inline-end:12px;z-index:7;background:var(--ac);color:white;border:0;border-radius:100px;box-shadow:0 4px 15px #0003;padding:9px 14px;font-size:13px}
+body.audio-hidden #restore-audio{display:block}
+body.audio-hidden #main{padding-bottom:calc(var(--nav-h) + env(safe-area-inset-bottom) + 30px)}
+#sheet{max-height:min(80dvh,680px);overscroll-behavior:contain}
+@media(max-width:360px){nav .nav-icon{font-size:19px}nav button{font-size:10px}#bar{padding:7px 8px;gap:3px}#bar .audio-main{gap:2px}#bar .audio-main button{padding:6px;min-width:30px}}
 </style>
 </head>
 <body>
 <header><button id="back" hidden>→</button><h1 id="ttl">المصحف الشريف</h1><button id="set">⚙️</button></header>
 <div id="main"></div>
-<div id="bar">
- <button id="pv">⏮</button><button id="pp" class="p">▶</button><button id="nx">⏭</button>
- <select id="rec"></select><button id="spd">1×</button><button id="rep">🔁 1</button>
+<div id="bar" role="region" aria-label="مشغل التلاوة">
+ <button id="audio-expand" class="audio-toggle" aria-expanded="false"><span class="chevron">⌃</span><span class="audio-title" id="audio-title">مشغل التلاوة</span></button>
+ <div class="audio-main"><button id="pv" aria-label="الآية السابقة">⏮</button><button id="pp" class="p" aria-label="تشغيل أو إيقاف">▶</button><button id="nx" aria-label="الآية التالية">⏭</button></div>
+ <button id="audio-hide" class="audio-hide" aria-label="إخفاء المشغل">✕</button>
+ <div class="audio-extra"><label for="rec">القارئ وإعدادات التلاوة</label><select id="rec"></select><button id="spd">1×</button><button id="rep">🔁 1</button></div>
 </div>
+<button id="restore-audio" aria-label="إظهار مشغل التلاوة">♫ المشغل</button>
 <nav id="nav"></nav>
 <div id="sheet"></div>
 <script>
@@ -66,10 +93,10 @@ let tab='surah',surahs=[],ays=[],cur=-1,repN=0,reading=false,ctx=null;
 const au=new Audio();
 
 function applyTheme(){document.documentElement.dataset.theme=S.theme;document.documentElement.style.setProperty('--fs',S.fs+'px');save()}
-function nav(){const t=[['surah','📖 السور'],['juz','🧩 الأجزاء'],['bm','🔖 المحفوظات'],['search','🔍 بحث']];
- $('#nav').innerHTML=t.map(([k,l])=>`<button data-k="${k}" class="${tab==k&&!reading?'on':''}">${l}</button>`).join('');
- $('#nav').onclick=e=>{const k=e.target.dataset.k;if(k){tab=k;closeReader();home()}}}
-function closeReader(){reading=false;au.pause();$('#bar').style.display='none';$('#back').hidden=true;$('#ttl').textContent='المصحف الشريف';nav()}
+function nav(){const t=[['surah','📖','السور'],['juz','🧩','الأجزاء'],['bm','🔖','المحفوظات'],['search','🔍','بحث']];
+ $('#nav').innerHTML=t.map(([k,ico,l])=>`<button data-k="${k}" class="${tab==k&&!reading?'on':''}"><span class="nav-icon" aria-hidden="true">${ico}</span><span class="nav-label">${l}</span></button>`).join('');
+ $('#nav').onclick=e=>{const k=e.target.closest('button[data-k]')?.dataset.k;if(k){tab=k;closeReader();home()}}}
+function closeReader(){reading=false;document.body.classList.remove('reader-active','audio-hidden');$('#bar').classList.remove('expanded');au.pause();$('#bar').style.display='none';$('#back').hidden=true;$('#ttl').textContent='المصحف الشريف';nav()}
 $('#back').onclick=()=>{closeReader();home()};
 
 async function home(){
@@ -105,7 +132,7 @@ async function openReader(type,n,focus){
   ctx={type,n,title:type=='surah'?d[0].name:'الجزء '+AR(n)};
  }catch{m.innerHTML='<div class="mut">تعذّر التحميل، تأكد من الاتصال</div>';return}
  $('#ttl').textContent=ctx.title;renderReader();
- $('#bar').style.display='flex';
+ $('#bar').style.display='flex';document.body.classList.add('reader-active');document.body.classList.remove('audio-hidden');$('#audio-title').textContent=ctx.title+' · '+RECS[S.rec][0];
  if(focus){const el=document.querySelector(`.a[data-s="${n}"][data-n="${focus}"]`)||document.querySelector(`.a[data-n="${focus}"]`);el&&el.scrollIntoView({block:'center'})}else window.scrollTo(0,0);
 }
 function renderReader(){
@@ -127,11 +154,14 @@ au.onended=()=>{if(++repN<(S.rep||1)){au.currentTime=0;au.play()}else play(cur+1
 $('#pp').onclick=()=>{if(au.paused&&au.src){au.play();$('#pp').textContent='⏸'}else if(au.paused)play(0);else{au.pause();$('#pp').textContent='▶'}};
 $('#nx').onclick=()=>play(cur+1);$('#pv').onclick=()=>play(Math.max(0,cur-1));
 $('#rec').innerHTML=Object.entries(RECS).map(([k,v])=>`<option value="${k}">${v[0]}</option>`).join('');$('#rec').value=S.rec;
-$('#rec').onchange=e=>{S.rec=e.target.value;save();if(!au.paused)play(cur)};
+$('#rec').onchange=e=>{S.rec=e.target.value;$('#audio-title').textContent=(ctx?.title||'المصحف')+' · '+RECS[S.rec][0];save();if(!au.paused)play(cur)};
 $('#spd').onclick=()=>{const s=[1,1.25,1.5,.75];S.spd=s[(s.indexOf(S.spd)+1)%4];au.playbackRate=S.spd;$('#spd').textContent=S.spd+'×';save()};
 $('#rep').onclick=()=>{const r=[1,3,5,10];S.rep=r[(r.indexOf(S.rep)+1)%4];$('#rep').textContent='🔁 '+S.rep;save()};
 $('#spd').textContent=S.spd+'×';$('#rep').textContent='🔁 '+S.rep;
 
+$('#audio-expand').onclick=()=>{const expanded=$('#bar').classList.toggle('expanded');$('#audio-expand').setAttribute('aria-expanded',String(expanded));$('#audio-expand .chevron').textContent=expanded?'⌄':'⌃'};
+$('#audio-hide').onclick=()=>{$('#bar').classList.remove('expanded');document.body.classList.add('audio-hidden');$('#bar').style.display='none'};
+$('#restore-audio').onclick=()=>{document.body.classList.remove('audio-hidden');$('#bar').style.display='flex'};
 // ---- Sheets
 const sh=h=>{$('#sheet').innerHTML=h;$('#sheet').classList.add('o')};
 document.addEventListener('click',e=>{if($('#sheet').classList.contains('o')&&!e.target.closest('#sheet')&&!e.target.closest('.a')&&!e.target.closest('#set'))$('#sheet').classList.remove('o')});
